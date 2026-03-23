@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalshi Trading Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e17; --surface: #111827; --surface2: #1f2937;
+    --border: #374151; --text: #f3f4f6; --muted: #9ca3af;
+    --green: #10b981; --red: #ef4444; --blue: #3b82f6;
+    --yellow: #f59e0b; --purple: #8b5cf6; --cyan: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  .app { max-width: 1440px; margin: 0 auto; padding: 16px; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .header h1 { font-size: 22px; font-weight: 700; }
+  .header h1 span { color: var(--cyan); }
+  .mode-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+  .mode-live { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
+  .mode-paper { background: rgba(59,130,246,0.15); color: var(--blue); border: 1px solid var(--blue); }
+
+  /* Stats row */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-card .value { font-size: 24px; font-weight: 700; }
+  .stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .neutral { color: var(--muted); }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-green:hover { background: #059669; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover { background: #dc2626; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: #2563eb; }
+  .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--surface2); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .refresh-indicator { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  /* Tables */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); padding: 10px 12px; text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 12px; border-top: 1px solid var(--border); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .side-yes { color: var(--green); font-weight: 600; }
+  .side-no { color: var(--red); font-weight: 600; }
+  .action-buy { color: var(--green); }
+  .action-skip { color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-open { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .badge-closed { background: rgba(107,114,128,0.15); color: var(--muted); }
+  .badge-buy { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-skip { background: rgba(107,114,128,0.15); color: var(--muted); }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+
+  /* Ticker truncation */
+  .ticker { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: var(--cyan); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title-cell { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reasoning { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+
+  /* Confidence bar */
+  .conf-bar { width: 60px; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .conf-fill { height: 100%; border-radius: 3px; }
+
+  /* Log panel */
+  .log-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; color: var(--muted); }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(55,65,81,0.3); }
+  .log-time { color: var(--purple); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+const API = window.location.origin;
+
+function App() {
+  const [data, setData] = useState(null);
+  const [tab, setTab] = useState("positions");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/dashboard`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      setData(d);
+      setError(null);
+      setLastRefresh(new Date());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); const iv = setInterval(fetchData, 5000); return () => clearInterval(iv); }, [fetchData]);
+
+  const apiAction = async (endpoint, method = "POST") => {
+    setActionLoading(true);
+    try {
+      const r = await fetch(`${API}${endpoint}`, { method });
+      const d = await r.json();
+      await fetchData();
+      return d;
+    } catch (e) { setError(e.message); } finally { setActionLoading(false); }
+  };
+
+  if (loading) return <div className="app"><div className="empty">Loading dashboard...</div></div>;
+  if (error && !data) return <div className="app"><div className="empty">Error: {error}<br/><button className="btn btn-blue" onClick={fetchData}>Retry</button></div></div>;
+
+  const d = data || {};
+  const eng = d.engine || {};
+  const stats = d.stats || {};
+  const positions = d.positions || [];
+  const trades = d.trades || [];
+  const analyses = d.analyses || [];
+  const cfg = d.config || {};
+
+  const pnlClass = (v) => v > 0 ? "positive" : v < 0 ? "negative" : "neutral";
+  const fmtPnl = (v) => v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`;
+  const fmtPct = (v) => `${(v * 100).toFixed(1)}%`;
+  const fmtTime = (iso) => { if (!iso) return "â"; try { const d = new Date(iso); return d.toLocaleTimeString(); } catch { return iso; } };
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <div className="header">
+        <h1>Kalshi <span>Trading Dashboard</span></h1>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span className={`mode-badge ${eng.live_mode ? 'mode-live' : 'mode-paper'}`}>
+            {eng.live_mode ? 'â LIVE' : 'â PAPER'}
+          </span>
+          <span className={`mode-badge`} style={{background:'rgba(139,92,246,0.15)',color:'var(--purple)',border:'1px solid var(--purple)'}}>
+            Claude AI
+          </span>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="stats">
+        <div className="stat-card">
+          <div className="label">Balance</div>
+          <div className="value">${(d.balance||0).toFixed(2)}</div>
+          <div className="sub">Peak: ${(d.peak_balance||0).toFixed(2)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Daily P&L</div>
+          <div className={`value ${pnlClass(d.daily_pnl)}`}>{fmtPnl(d.daily_pnl||0)}</div>
+          <div className="sub">Unrealized: {fmtPnl(d.total_unrealized_pnl||0)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Open Positions</div>
+          <div className="value">{positions.length}<span style={{fontSize:14,color:'var(--muted)'}}> / {cfg.max_positions||10}</span></div>
+          <div className="sub">Scans: {eng.scan_count||0}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Win Rate</div>
+          <div className="value">{fmtPct(stats.win_rate||0)}</div>
+          <div className="sub">{stats.wins||0}W / {stats.losses||0}L ({stats.total_trades||0} total)</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Total P&L</div>
+          <div className={`value ${pnlClass(stats.total_pnl)}`}>{fmtPnl(stats.total_pnl||0)}</div>
+          <div className="sub">Avg: {fmtPnl(stats.avg_pnl||0)}/trade</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">AI Cost Today</div>
+          <div className="value" style={{color:'var(--yellow)'}}>${(d.ai_cost_today||0).toFixed(4)}</div>
+          <div className="sub">Model: {cfg.claude_model || 'claude-sonnet'}</div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="controls">
+        {eng.running ? (
+          <button className="btn btn-red" onClick={() => apiAction('/api/engine/stop')} disabled={actionLoading}>
+            â  Stop Engine
+          </button>
+        ) : (
+          <button className="btn btn-green" onClick={() => apiAction('/api/engine/start')} disabled={actionLoading}>
+            â¶ Start Engine
+          </button>
+        )}
+        <button className="btn btn-blue" onClick={() => apiAction('/api/engine/scan')} disabled={actionLoading || eng.running}>
+          â³ Manual Scan
+        </button>
+        <button className="btn btn-outline" onClick={fetchData}>Refresh</button>
+        <span className="refresh-indicator">
+          {eng.running && 'â Engine running'} {lastRefresh && `Updated ${fmtTime(lastRefresh.toISOString())}`}
+        </span>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs">
+        {["positions","trades","analyses","markets"].map(t => (
+          <div key={t} className={`tab ${tab===t?'active':''}`} onClick={() => setTab(t)}>
+            {t==="positions"?`Positions (${positions.length})`:
+             t==="trades"?`Trades (${trades.length})`:
+             t==="analyses"?`Analyses (${analyses.length})`:
+             "Live Markets"}
+          </div>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {tab === "positions" && <PositionsTable positions={positions} />}
+      {tab === "trades" && <TradesTable trades={trades} />}
+      {tab === "analyses" && <AnalysesTable analyses={analyses} />}
+      {tab === "markets" && <MarketsPanel />}
+    </div>
+  );
+}
+
+function ConfBar({ value }) {
+  const pct = Math.min(100, Math.max(0, (value || 0) * 100));
+  const color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--yellow)' : 'var(--red)';
+  return (
+    <span>
+      <span className="conf-bar"><span className="conf-fill" style={{width:`${pct}%`,background:color}} /></span>
+      {pct.toFixed(0)}%
+    </span>
+  );
+}
+
+function PositionsTable({ positions }) {
+  if (!positions.length) return <div className="empty">No open positions. Start the engine or run a manual scan.</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Title</th><th>Side</th><th>Entry</th><th>Current</th>
+          <th>Qty</th><th>Cost</th><th>P&L</th><th>Confidence</th><th>Opened</th>
+        </tr></thead>
+        <tbody>
+          {positions.map((p, i) => {
+            const pnl = p.unrealized_pnl || ((p.current_price - p.entry_price) * p.quantity / 100);
+            return (
+              <tr key={i}>
+                <td className="ticker">{p.ticker}</td>
+                <td className="title-cell">{p.title || 'â'}</td>
+                <td className={p.side==='YES'?'side-yes':'side-no'}>{p.side}</td>
+                <td>{p.entry_price}Â¢</td>
+                <td>{p.current_price ? `${p.current_price}Â¢` : 'â'}</td>
+                <td>{p.quantity}</td>
+                <td>${(¡.cost_basis||0).toFixed(2)}</td>
+                <td className={pnl>=0?'positive':'negative'}>{pnl>=0?'+':''}${pnl.toFixed(2)}</td>
+                <td><ConfBar value={p.confidence} /></td>
+                <td style={{fontSize:12,color:'var(--muted)'}}>{p.created_at ? new Date(p.created_at).toLocaleString() : 'â'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TradesTable({ trades }) {
+  if (!trades.length) return <div className="empty">No trades yet.</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Title</th><th>Side</th><th>Action</th><th>Entry</th>
+          <th>Exit</th><th>Qty</th><th>P&L</th><th>Confidence</th><th>Time</th>
+        </tr></thead>
+        <tbody>
+          {trades.map((t, i) => (
+            <tr key={i}>
+              <td className="ticker">{t.ticker}</td>
+              <td className="title-cell">{t.title || 'â'}</td>
+              <td className={t.side==='YES'?'side-yes':'side-no'}>{t.side}</td>
+              <td className={t.action==='buy'?'action-buy':''}>{t.action?.toUpperCase()}</td>
+              <td>{t.entry_price}Â¢</td>
+              <td>{t.exit_price ? `${t.exit_price}Â¢` : 'â'}</td>
+              <td>{t.quantity}</td>
+              <td className={t.pnl>=0?'positive':'negative'}>{t.pnl>=0?'+':''}${(t.pnl||0).toFixed(2)}</td>
+              <td><ConfBar value={t.confidence} /></td>
+              <td style={{fontSize:12,color:'var(--muted)'}}>{t.created_at ? new Date(t.created_at).toLocaleString() : 'â'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AnalysesTable({ analyses }) {
+  if (!analyses.length) return <div className="empty">No analyses yet. Run a scan to analyze markets.</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Title</th><th>YES/NO</th><th>Decision</th><th>Side</th>
+          <th>Edge</th><th>Confidence</th><th>Cost</th><th>Reasoning</th><th>Time</th>
+        </tr></thead>
+        <tbody>
+          {analyses.map((a, i) => (
+            <tr key={i}>
+              <td className="ticker">{a.ticker}</td>
+              <td className="title-cell">{a.title || 'â'}</td>
+              <td>{a.yes_price}Â¢ / {a.no_price}Â¢</td>
+              <td><span className={`badge ${a.decision==='BUY'?'badge-buy':'badge-skip'}`}>{a.decision||'â'}</span></td>
+              <td className={a.claude_side==='YES'?'side-yes':a.claude_side==='NO'?'side-no':''}>{a.claude_side||'â'}</td>
+              <td className={a.edge>0?'positive':a.edge<0?'negative':''}>{a.edge ? `${(a.edge*100).toFixed(1)}%` : 'â'}</td>
+              <td><ConfBar value={a.claude_confidence} /></td>
+              <td style={{color:'var(--yellow)'}}>${(a.cost_usd||0).toFixed(4)}</td>
+              <td className="reasoning" title={a.claude_reasoning}>{a.claude_reasoning||'â'}</td>
+              <td style={{fontSize:12,color:'var(--muted)'}}>{a.created_at ? new Date(a.created_at).toLocaleString() : 'â'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MarketsPanel() {
+  const [markets, setMarkets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`${API}/api/markets?limit=30`)
+      .then(r => r.json())
+      .then(d => { setMarkets(d.markets || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="empty">Loading markets...</div>;
+  if (!markets.length) return <div className="empty">No tradeable markets found.</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Title</th><th>YES</th><th>NO</th><th>Volume</th>
+          <th>Status</th><th>Expires</th>
+        </tr></thead>
+        <tbody>
+          {markets.map((m, i) => {
+            let yp = m.yes_price || m.yes_bid || 'â';
+            let np = m.no_price || m.no_bid || 'â';
+            if (typeof yp === 'number' && yp < 1) { yp = Math.round(yp*100); np = Math.round(np*100); }
+            const exp = m.expiration_time || m.close_time;
+            let expStr = 'â';
+            if (exp) { try { const d = new Date(exp); const hrs = Math.max(0,(d-new Date())/3600000); expStr = hrs < 24 ? `${hrs.toFixed(0)}h` : `${(hrs/24).toFixed(1)}d`; } catch {} }
+            return (
+              <tr key={i}>
+                <td className="ticker">{m.ticker}</td>
+                <td className="title-cell">{m.title}</td>
+                <td className="side-yes">{yp}Â¢</td>
+                <td className="side-no">{np}Â¢</td>
+                <td>{(m.volume||0).toLocaleString()}</td>
+                <td><span className="badge badge-open">{m.status}</span></td>
+                <td style={{fontSize:12,color:'var(--muted)'}}>{expStr}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
