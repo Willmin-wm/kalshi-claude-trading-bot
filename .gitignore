@@ -1,0 +1,36 @@
+# Secrets â NEVER commit these
+.env
+*.pem
+kalshi_private_key*
+Claude Trading.txt
+
+# Database
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Logs
+logs/
+*.log
+*.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+test_trading.db*
