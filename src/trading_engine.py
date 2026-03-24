@@ -414,9 +414,14 @@ class TradingEngine:
                 logger.info("No tradeable markets found this scan")
                 return summary
 
-            # Sort by volume (highest first) and take top N
+            # Sort by volume (highest first) and take top N candidates
             candidates.sort(key=lambda m: self._to_float(m.get("volume_fp") or m.get("volume")), reverse=True)
-            to_analyze = candidates[:10]  # Analyze top 10 by volume
+            to_analyze = candidates[:config.top_n_candidates]
+            logger.info(
+                f"Filter: {len(all_markets)} fetched → {len(candidates)} passed "
+                f"(vol≥{config.min_volume}, {config.min_yes_price}¢-{config.max_yes_price}¢, "
+                f"≤{config.max_expiry_days}d) → top {len(to_analyze)} to analyze"
+            )
 
             # Analyze with Claude
             open_positions = await self.db.get_open_positions()
@@ -468,7 +473,8 @@ class TradingEngine:
                     "yes_price": _yp,
                     "no_price": _np,
                     "volume": _vol,
-                    "probability": analysis.get("forecaster_probability"),
+                    "probability": analysis.get("adjusted_probability",
+                                                analysis.get("forecaster_probability")),
                     "confidence": analysis.get("confidence"),
                     "side": analysis.get("side"),
                     "action": analysis.get("action"),
@@ -481,7 +487,9 @@ class TradingEngine:
                 # Execute if BUY
                 if analysis.get("action") == "BUY":
                     side = analysis["side"].upper()
-                    probability = float(analysis.get("forecaster_probability", 0.5))
+                    # Use adjusted_probability (post-Critic debate) for sizing
+                    probability = float(analysis.get("adjusted_probability",
+                                        analysis.get("forecaster_probability", 0.5)))
                     limit_price = int(analysis.get("limit_price", 0))
 
                     # Kelly sizing

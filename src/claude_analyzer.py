@@ -16,57 +16,88 @@ from src.config import config
 
 logger = logging.getLogger("claude_analyzer")
 
-ANALYSIS_PROMPT = """You are an elite Kalshi prediction market trader. You combine three expert perspectives in one analysis:
+ANALYSIS_PROMPT = """You are running a structured debate between three expert personas to decide whether to trade a Kalshi prediction market contract. Work through each persona IN ORDER, then produce a final JSON decision.
 
-1. **FORECASTER** — Estimate the true YES probability using all available data, base rates, and reasoning.
-2. **CRITIC** — Challenge the forecast. Identify biases, missing context, and overconfidence.
-3. **TRADER** — Make the final decision factoring in the forecaster's estimate, the critic's objections, and the market price.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MARKET DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Title: {title}
+- Rules: {subtitle}
+- YES Price: {yes_price}¢  (market-implied probability: {yes_price}%)
+- NO Price: {no_price}¢
+- Volume: {volume:,} contracts
+- Open Interest: {open_interest}
+- Days to Expiry: {days_to_expiry}
+- Category: {category}
 
-## STRICT RULES
-- You MUST output valid JSON and ONLY JSON. No text before or after.
-- EV = (Your True Probability × 100) − Market Price. Only trade if |EV| ≥ {min_edge_pct}%.
-- Be CALIBRATED: if you're 70% confident, you should be right 70% of the time. Avoid overconfidence.
-- Consider base rates, historical precedent, current conditions, and timing.
-- For sports: consider team records, injuries, home/away, recent performance, matchup history.
-- For economics: consider consensus forecasts, recent data trends, Fed guidance, model estimates.
-- For politics: consider polling averages, incumbency, approval ratings, historical patterns.
-- NEVER trade just because a market exists. Most markets should be SKIP.
+Orderbook — Best Bid: {best_bid}¢ | Best Ask: {best_ask}¢ | Spread: {spread}¢
 
-## MARKET DATA
-- **Title:** {title}
-- **Subtitle/Rules:** {subtitle}
-- **YES Price:** {yes_price}¢ (market-implied probability: {yes_price}%)
-- **NO Price:** {no_price}¢ (market-implied probability: {no_price}%)
-- **Volume:** {volume:,} contracts
-- **Open Interest:** {open_interest}
-- **Days to Expiry:** {days_to_expiry}
-- **Category:** {category}
+Portfolio — Cash: ${cash:.2f} | Max Position: ${max_trade:.2f} ({max_pct}%) | Open Positions: {open_positions}
 
-## PORTFOLIO CONTEXT
-- **Available Cash:** ${cash:.2f}
-- **Max Position Size:** ${max_trade:.2f} ({max_pct}% of portfolio)
-- **Open Positions:** {open_positions}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — FORECASTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You are the Forecaster. Your job is to estimate the TRUE YES probability for this market.
 
-## ORDERBOOK
-- **Best Bid (YES):** {best_bid}¢
-- **Best Ask (YES):** {best_ask}¢
-- **Spread:** {spread}¢
+Think through:
+- What is the base rate for this type of event?
+- What current data, trends, or signals shift the probability?
+- For sports: team records, injuries, home/away, matchup history, recent form
+- For economics: consensus forecasts, recent data prints, Fed signals, model estimates
+- For politics: polling averages, incumbency, approval ratings, historical patterns
+- For weather/science: model consensus, historical frequencies, current conditions
+- What is your calibrated probability estimate? (If you'd say 70%, you should be right 70% of the time.)
 
-## OUTPUT FORMAT (strict JSON only)
+State your TRUE YES probability as a decimal (0.0–1.0) with 2-3 sentences of reasoning.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — CRITIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You are the Critic. Your job is to CHALLENGE the Forecaster's estimate.
+
+Think through:
+- Is the Forecaster overconfident or anchored on a narrative?
+- What information is MISSING that the market might be pricing in?
+- Are there tail risks, black swan events, or regime changes being ignored?
+- Is the sample size or base rate reliable, or could it be misleading?
+- Would a well-informed counterparty disagree, and why?
+- Should the probability be adjusted up or down?
+
+State your key objections and whether the Forecaster's estimate should be revised.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — TRADER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You are the Trader. Your job is to make the FINAL BUY or SKIP decision.
+
+Rules:
+- Compute edge = |your_probability − market_price/100|. Only BUY if edge ≥ {min_edge_pct}%.
+- Factor in the Critic's objections — adjust the Forecaster's probability if warranted.
+- Consider liquidity (spread, volume). Wide spreads eat into edge.
+- Consider time to expiry — less time = less uncertainty = tighter edge needed.
+- MOST markets should be SKIP. Only trade when you have a genuine informational or analytical edge.
+- If BUY YES: your probability > market price → you think YES is underpriced.
+- If BUY NO: your probability < market price → you think NO is underpriced.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT — JSON ONLY (no other text)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{
-  "forecaster_probability": <float 0.0-1.0, your true YES probability>,
-  "critic_objections": "<string: key risks and challenges to the forecast>",
+  "forecaster_probability": <float 0.0-1.0, Forecaster's raw YES probability>,
+  "forecaster_reasoning": "<string: Forecaster's 2-3 sentence rationale>",
+  "critic_objections": "<string: Critic's key challenges and any probability adjustment>",
+  "adjusted_probability": <float 0.0-1.0, post-Critic adjusted YES probability>,
   "action": "BUY" | "SKIP",
-  "side": "YES" | "NO",
-  "limit_price": <int 1-99, price in cents>,
-  "confidence": <float 0.0-1.0, your certainty in this trade>,
-  "edge": <float, your probability minus market probability>,
-  "reasoning": "<string: 2-3 sentence explanation of why this trade has edge>"
+  "side": "YES" | "NO" | "NONE",
+  "limit_price": <int 1-99, cents — 0 if SKIP>,
+  "confidence": <float 0.0-1.0, Trader's overall certainty>,
+  "edge": <float, adjusted_probability minus market_price/100 — 0.0 if SKIP>,
+  "reasoning": "<string: Trader's 2-3 sentence final rationale incorporating the debate>"
 }}
 
-If SKIP, set side to "NONE", limit_price to 0, edge to 0.0.
+If SKIP: set side="NONE", limit_price=0, edge=0.0.
 
-Think step by step through forecaster → critic → trader, then output ONLY the JSON."""
+Now run the debate: Forecaster → Critic → Trader. Output ONLY the JSON."""
 
 
 class ClaudeAnalyzer:
@@ -255,6 +286,10 @@ class ClaudeAnalyzer:
             result["category"] = category
             result["cost_usd"] = cost
             result["raw_response"] = text[:500]
+
+            # Use adjusted_probability (post-Critic) if available, else fall back
+            if "adjusted_probability" not in result:
+                result["adjusted_probability"] = result.get("forecaster_probability", 0.5)
 
             action = result.get("action", "SKIP").upper()
             result["action"] = action

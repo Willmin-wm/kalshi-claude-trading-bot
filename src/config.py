@@ -22,10 +22,11 @@ class Config:
     live_trading: bool = field(default_factory=lambda: os.getenv("LIVE_TRADING_ENABLED", "false").lower() == "true")
 
     # === Market Filtering ===
-    min_volume: int = 20               # Minimum contract volume to consider (lowered for dev/debug)
-    max_expiry_days: int = 36500       # ~100 years — Kalshi long-term markets expire in years
-    min_yes_price: int = 1             # Min YES price in cents (allow broader range)
-    max_yes_price: int = 999999999            # Max YES price in cents (allow broader range)
+    min_volume: int = 200              # Minimum contract volume to consider
+    max_expiry_days: int = 10          # Only short-term markets (≤10 days to expiry)
+    min_yes_price: int = 5             # Min YES price in cents (5¢ floor)
+    max_yes_price: int = 95            # Max YES price in cents (95¢ cap)
+    top_n_candidates: int = 10         # Analyze top N candidates by volume per scan
 
     # === AI Analysis ===
     claude_model: str = "claude-sonnet-4-20250514"
