@@ -144,7 +144,7 @@ function App() {
   const pnlClass = (v) => v > 0 ? "positive" : v < 0 ? "negative" : "neutral";
   const fmtPnl = (v) => v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`;
   const fmtPct = (v) => `${(v * 100).toFixed(1)}%`;
-  const fmtTime = (iso) => { if (!iso) return "â"; try { const d = new Date(iso); return d.toLocaleTimeString(); } catch { return iso; } };
+  const fmtTime = (iso) => { if (!iso) return "—"; try { const d = new Date(iso); return d.toLocaleTimeString(); } catch { return iso; } };
 
   return (
     <div className="app">
@@ -153,7 +153,7 @@ function App() {
         <h1>Kalshi <span>Trading Dashboard</span></h1>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <span className={`mode-badge ${eng.live_mode ? 'mode-live' : 'mode-paper'}`}>
-            {eng.live_mode ? 'â LIVE' : 'â PAPER'}
+            {eng.live_mode ? '● LIVE' : '○ PAPER'}
           </span>
           <span className={`mode-badge`} style={{background:'rgba(139,92,246,0.15)',color:'var(--purple)',border:'1px solid var(--purple)'}}>
             Claude AI
@@ -199,19 +199,19 @@ function App() {
       <div className="controls">
         {eng.running ? (
           <button className="btn btn-red" onClick={() => apiAction('/api/engine/stop')} disabled={actionLoading}>
-            â  Stop Engine
+            ■ Stop Engine
           </button>
         ) : (
           <button className="btn btn-green" onClick={() => apiAction('/api/engine/start')} disabled={actionLoading}>
-            â¶ Start Engine
+            ▶ Start Engine
           </button>
         )}
         <button className="btn btn-blue" onClick={() => apiAction('/api/engine/scan')} disabled={actionLoading || eng.running}>
-          â³ Manual Scan
+          ⟳ Manual Scan
         </button>
         <button className="btn btn-outline" onClick={fetchData}>Refresh</button>
         <span className="refresh-indicator">
-          {eng.running && 'â Engine running'} {lastRefresh && `Updated ${fmtTime(lastRefresh.toISOString())}`}
+          {eng.running && '● Engine running'} {lastRefresh && `Updated ${fmtTime(lastRefresh.toISOString())}`}
         </span>
       </div>
 
@@ -262,15 +262,15 @@ function PositionsTable({ positions }) {
             return (
               <tr key={i}>
                 <td className="ticker">{p.ticker}</td>
-                <td className="title-cell">{p.title || 'â'}</td>
+                <td className="title-cell">{p.title || '—'}</td>
                 <td className={p.side==='YES'?'side-yes':'side-no'}>{p.side}</td>
-                <td>{p.entry_price}Â¢</td>
-                <td>{p.current_price ? `${p.current_price}Â¢` : 'â'}</td>
+                <td>{p.entry_price}¢</td>
+                <td>{p.current_price ? `${p.current_price}¢` : '—'}</td>
                 <td>{p.quantity}</td>
-                <td>${(¡.cost_basis||0).toFixed(2)}</td>
+                <td>${(p.cost_basis||0).toFixed(2)}</td>
                 <td className={pnl>=0?'positive':'negative'}>{pnl>=0?'+':''}${pnl.toFixed(2)}</td>
                 <td><ConfBar value={p.confidence} /></td>
-                <td style={{fontSize:12,color:'var(--muted)'}}>{p.created_at ? new Date(p.created_at).toLocaleString() : 'â'}</td>
+                <td style={{fontSize:12,color:'var(--muted)'}}>{p.created_at ? new Date(p.created_at).toLocaleString() : '—'}</td>
               </tr>
             );
           })}
@@ -293,15 +293,15 @@ function TradesTable({ trades }) {
           {trades.map((t, i) => (
             <tr key={i}>
               <td className="ticker">{t.ticker}</td>
-              <td className="title-cell">{t.title || 'â'}</td>
+              <td className="title-cell">{t.title || '—'}</td>
               <td className={t.side==='YES'?'side-yes':'side-no'}>{t.side}</td>
               <td className={t.action==='buy'?'action-buy':''}>{t.action?.toUpperCase()}</td>
-              <td>{t.entry_price}Â¢</td>
-              <td>{t.exit_price ? `${t.exit_price}Â¢` : 'â'}</td>
+              <td>{t.entry_price}¢</td>
+              <td>{t.exit_price ? `${t.exit_price}¢` : '—'}</td>
               <td>{t.quantity}</td>
               <td className={t.pnl>=0?'positive':'negative'}>{t.pnl>=0?'+':''}${(t.pnl||0).toFixed(2)}</td>
               <td><ConfBar value={t.confidence} /></td>
-              <td style={{fontSize:12,color:'var(--muted)'}}>{t.created_at ? new Date(t.created_at).toLocaleString() : 'â'}</td>
+              <td style={{fontSize:12,color:'var(--muted)'}}>{t.created_at ? new Date(t.created_at).toLocaleString() : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -323,15 +323,15 @@ function AnalysesTable({ analyses }) {
           {analyses.map((a, i) => (
             <tr key={i}>
               <td className="ticker">{a.ticker}</td>
-              <td className="title-cell">{a.title || 'â'}</td>
-              <td>{a.yes_price}Â¢ / {a.no_price}Â¢</td>
-              <td><span className={`badge ${a.decision==='BUY'?'badge-buy':'badge-skip'}`}>{a.decision||'â'}</span></td>
-              <td className={a.claude_side==='YES'?'side-yes':a.claude_side==='NO'?'side-no':''}>{a.claude_side||'â'}</td>
-              <td className={a.edge>0?'positive':a.edge<0?'negative':''}>{a.edge ? `${(a.edge*100).toFixed(1)}%` : 'â'}</td>
+              <td className="title-cell">{a.title || '—'}</td>
+              <td>{a.yes_price}¢ / {a.no_price}¢</td>
+              <td><span className={`badge ${a.decision==='BUY'?'badge-buy':'badge-skip'}`}>{a.decision||'—'}</span></td>
+              <td className={a.claude_side==='YES'?'side-yes':a.claude_side==='NO'?'side-no':''}>{a.claude_side||'—'}</td>
+              <td className={a.edge>0?'positive':a.edge<0?'negative':''}>{a.edge ? `${(a.edge*100).toFixed(1)}%` : '—'}</td>
               <td><ConfBar value={a.claude_confidence} /></td>
               <td style={{color:'var(--yellow)'}}>${(a.cost_usd||0).toFixed(4)}</td>
-              <td className="reasoning" title={a.claude_reasoning}>{a.claude_reasoning||'â'}</td>
-              <td style={{fontSize:12,color:'var(--muted)'}}>{a.created_at ? new Date(a.created_at).toLocaleString() : 'â'}</td>
+              <td className="reasoning" title={a.claude_reasoning}>{a.claude_reasoning||'—'}</td>
+              <td style={{fontSize:12,color:'var(--muted)'}}>{a.created_at ? new Date(a.created_at).toLocaleString() : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -343,14 +343,16 @@ function AnalysesTable({ analyses }) {
 function MarketsPanel() {
   const [markets, setMarkets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   useEffect(() => {
-    fetch(`${API}/api/markets?limit=30`)
-      .then(r => r.json())
+    fetch(`${API}/api/markets?limit=50`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => { setMarkets(d.markets || []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { setError(e.message); setLoading(false); });
   }, []);
   if (loading) return <div className="empty">Loading markets...</div>;
-  if (!markets.length) return <div className="empty">No tradeable markets found.</div>;
+  if (error) return <div className="empty">Error fetching markets: {error}</div>;
+  if (!markets.length) return <div className="empty">No open markets found.</div>;
   return (
     <div className="table-wrap">
       <table>
@@ -360,18 +362,18 @@ function MarketsPanel() {
         </tr></thead>
         <tbody>
           {markets.map((m, i) => {
-            let yp = m.yes_price || m.yes_bid || 'â';
-            let np = m.no_price || m.no_bid || 'â';
+            let yp = m.yes_price || m.yes_bid || '—';
+            let np = m.no_price || m.no_bid || '—';
             if (typeof yp === 'number' && yp < 1) { yp = Math.round(yp*100); np = Math.round(np*100); }
             const exp = m.expiration_time || m.close_time;
-            let expStr = 'â';
+            let expStr = '—';
             if (exp) { try { const d = new Date(exp); const hrs = Math.max(0,(d-new Date())/3600000); expStr = hrs < 24 ? `${hrs.toFixed(0)}h` : `${(hrs/24).toFixed(1)}d`; } catch {} }
             return (
               <tr key={i}>
                 <td className="ticker">{m.ticker}</td>
                 <td className="title-cell">{m.title}</td>
-                <td className="side-yes">{yp}Â¢</td>
-                <td className="side-no">{np}Â¢</td>
+                <td className="side-yes">{yp}¢</td>
+                <td className="side-no">{np}¢</td>
                 <td>{(m.volume||0).toLocaleString()}</td>
                 <td><span className="badge badge-open">{m.status}</span></td>
                 <td style={{fontSize:12,color:'var(--muted)'}}>{expStr}</td>

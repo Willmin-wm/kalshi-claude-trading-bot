@@ -118,7 +118,7 @@ class Database:
                 await db.commit()
                 return cursor.lastrowid
 
-    # ââ Positions ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Positions ────────────────────────────────────────────────────────
     async def open_position(self, data: Dict) -> int:
         now = datetime.utcnow().isoformat()
         return await self._execute(
@@ -164,7 +164,7 @@ class Database:
             (exit_price, pnl, now, now, position_id),
         )
 
-    # ââ Trades âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Trades ───────────────────────────────────────────────────────────
     async def log_trade(self, data: Dict) -> int:
         now = datetime.utcnow().isoformat()
         return await self._execute(
@@ -186,7 +186,7 @@ class Database:
             (limit,), fetch="all",
         )
 
-    # ââ Analyses âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Analyses ─────────────────────────────────────────────────────────
     async def log_analysis(self, data: Dict) -> int:
         now = datetime.utcnow().isoformat()
         return await self._execute(
@@ -218,7 +218,7 @@ class Database:
         )
         return row and row["cnt"] > 0
 
-    # ââ Stats ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Stats ────────────────────────────────────────────────────────────
     async def get_performance_stats(self) -> Dict:
         trades = await self._execute(
             "SELECT * FROM trades WHERE exit_price IS NOT NULL", fetch="all"

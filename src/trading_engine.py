@@ -1,5 +1,5 @@
 """
-Trading Engine â orchestrates market scanning, Claude analysis, order execution,
+Trading Engine — orchestrates market scanning, Claude analysis, order execution,
 and position management with Kelly Criterion sizing and risk controls.
 """
 
@@ -57,7 +57,7 @@ class TradingEngine:
             logger.error(f"Failed to fetch balance: {e}")
             self.balance = 0
 
-    # ââ Kelly Criterion Position Sizing âââââââââââââââââââââââââââââââââââ
+    # ── Kelly Criterion Position Sizing ───────────────────────────────────
 
     def kelly_size(
         self, probability: float, market_price_cents: int, balance: float
@@ -66,7 +66,7 @@ class TradingEngine:
         Calculate position size using fractional Kelly Criterion.
 
         For binary markets:
-          Kelly % = (p Ã b - q) / b
+          Kelly % = (p × b - q) / b
           where p = win probability, q = 1-p, b = payout ratio
 
         Returns (quantity, dollar_amount).
@@ -105,7 +105,15 @@ class TradingEngine:
         actual_cost = quantity * price
         return quantity, actual_cost
 
-    # ââ Market Filtering âââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Market Filtering ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _to_float(v) -> float:
+        """Safely convert string/float/int/None to float."""
+        try:
+            return float(v) if v is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
 
     def _is_tradeable(self, market: Dict) -> bool:
         """Filter markets for tradeable opportunities."""
@@ -113,20 +121,27 @@ class TradingEngine:
         if status not in ("open", "active"):
             return False
 
-        # Price filters â avoid extreme prices
-        yes_price = market.get("yes_price") or market.get("yes_bid")
-        if yes_price is None:
-            return False
-
-        # Handle decimal vs cents
-        if isinstance(yes_price, float) and yes_price < 1:
-            yes_price = int(yes_price * 100)
+        # Price filters — Kalshi v2 API uses yes_bid_dollars (0.0–1.0 range) as strings
+        # Fall back to legacy yes_price/yes_bid fields (cents)
+        yes_price_dollars = next(
+            (self._to_float(market.get(f)) for f in ("yes_bid_dollars", "yes_ask_dollars", "last_price_dollars")
+             if self._to_float(market.get(f)) > 0),
+            None
+        )
+        if yes_price_dollars is None:
+            # Legacy format: yes_price/yes_bid in cents
+            legacy = self._to_float(market.get("yes_price") or market.get("yes_bid"))
+            if legacy <= 0:
+                return False
+            yes_price = int(legacy * 100) if legacy < 1 else int(legacy)
+        else:
+            yes_price = int(yes_price_dollars * 100)
 
         if yes_price < config.min_yes_price or yes_price > config.max_yes_price:
             return False
 
-        # Volume filter
-        volume = market.get("volume", 0) or 0
+        # Volume filter — Kalshi v2 uses volume_fp (returned as string)
+        volume = self._to_float(market.get("volume_fp") or market.get("volume"))
         if volume < config.min_volume:
             return False
 
@@ -146,7 +161,7 @@ class TradingEngine:
 
         return True
 
-    # ââ Risk Checks ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Risk Checks ──────────────────────────────────────────────────────
 
     async def _check_risk_limits(self) -> bool:
         """Check portfolio-level risk limits. Returns True if trading is allowed."""
@@ -177,7 +192,7 @@ class TradingEngine:
 
         return True
 
-    # ââ Order Execution ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Order Execution ──────────────────────────────────────────────────
 
     async def _execute_trade(self, analysis: Dict, quantity: int, cost: float) -> Optional[str]:
         """Place a trade on Kalshi. Returns order_id or None."""
@@ -186,7 +201,7 @@ class TradingEngine:
         limit_price = int(analysis.get("limit_price", 0))
 
         if not config.live_trading:
-            logger.info(f"[PAPER] Would buy {quantity}x {side} {ticker} @ {limit_price}Â¢")
+            logger.info(f"[PAPER] Would buy {quantity}x {side} {ticker} @ {limit_price}¢")
             return f"paper-{uuid.uuid4().hex[:8]}"
 
         try:
@@ -199,146 +214,408 @@ class TradingEngine:
                 count=quantity,
                 type_="limit",
                 yes_price=limit_price if side == "yes" else None,
-×ÜXÙO[[Z]ÜXÙHYÚYHOHÈ[ÙHÛK
-BXÝX[ÛÜ\ÚYH\Ý[Ù]
-Ü\ßJKÙ]
-Ü\ÚYÜ\ÚY
-BÙÙÙ\[ÊÔTPÑQÜ]X[]_^ÜÚY_HÝXÚÙ\HÛ[Z]ÜXÙ_p¨Ü\ÚY^ØXÝX[ÛÜ\ÚYKÛÜÝIØÛÜÝJH
-B]\XÝX[ÛÜ\ÚY^Ù\Ø[ÚPTQ\Ü\ÈNÙÙÙ\\ÜÜ\Z[YÜÝXÚÙ\NÙ_HB]\ÛBÈ8¥ 8¥ ÜÚ][Û[Û]Ü[È8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ \Þ[ÈYÚXÚ×ÜÜÚ][ÛÊÙ[N[Û]ÜÜ[ÜÚ][ÛÈ[^XÝ]H^]Ý]YÚY\ËÜÚ][ÛÈH]ØZ]Ù[Ù]ÛÜ[ÜÜÚ][ÛÊ
-BYÝÜÚ][ÛÎ]\ÜÜÈ[ÜÚ][ÛÎNXÚÙ\HÜÖÈXÚÙ\BÈÙ]Ý\[X\Ù]XÙBNX\Ù]H]ØZ]Ù[Ø[ÚKÙ]ÛX\Ù]
-XÚÙ\BX\Ù]Ù]HHX\Ù]Ù]
-X\Ù]X\Ù]
-B^Ù\^Ù\[ÛÛÛ[YBÚYHHÜÖÈÚYHK\\
-B[WÜXÙHHÜÖÈ[WÜXÙHBÈÝ\[XÙH\ÙYÛÝ\ÚYBYÚYHOHQTÈÝ\[H
-X\Ù]Ù]KÙ]
-Y\×ÜXÙHHÜX\Ù]Ù]KÙ]
-Y\×ØYHÜ[WÜXÙJB[ÙNÝ\[H
-X\Ù]Ù]KÙ]
-×ÜXÙHHÜX\Ù]Ù]KÙ]
-×ØYHÜ[WÜXÙJBÈ[HXÚ[X[ÈÙ[ÂY\Ú[Ý[ÙJÝ\[Ø]
-H[Ý\[NÝ\[HÝ\[
-LÈ\]HÝ\[XÙH[]ØZ]Ù[\]WÜÜÚ][ÛÜÖÈYKÈÝ\[ÜXÙHÝ\[JBÈÚXÚÈ^]ÛÛ][ÛÂY[WÜXÙHÜÝH
-Ý\[H[WÜXÙJHÈ[WÜXÙBÈÙ]\Ù]YÜÝHÛÛYËÙ]Ý\Ù]ÜÝ]ØZ]Ù[Ù^]ÜÜÚ][ÛÜËÝ\[ÑUÕTÑUBÛÛ[YBÈÝÜÜÜÂYÜÝHXÛÛYËÝÜÛÜÜ×ÜÝ]ØZ]Ù[Ù^]ÜÜÚ][ÛÜËÝ\[ÕÔÓÔÔÈBÛÛ[YBÈ[YKX\ÙY^]ÜX]YH]][YKÛZ\ÛÙÜX]
-ÜÖÈÜX]YØ]JBÝ\×Ú[H
-]][YK]ÛÝÊ
-HHÜX]Y
-KÝ[ÜÙXÛÛÊ
-HÈÍYÝ\×Ú[ÛÛYËX^ÚÛÚÝ\Î]ØZ]Ù[Ù^]ÜÜÚ][ÛÜËÝ\[SQWÑVUBÛÛ[YBÈÚXÚÈYX\Ù]\ÈÙ]YÝ]\ÈHX\Ù]Ù]KÙ]
-Ý]\ÈBYÝ]\È[
-Ù]YÛÜÙY[[^YN\Ý[HX\Ù]Ù]KÙ]
-\Ý[BY\Ý[^]ÜXÙHHLY\Ý[\\
-HOHÚYH[ÙH]ØZ]Ù[Ù^]ÜÜÚ][ÛÜË^]ÜXÙKÑUQÞÜ\Ý[\\
-_HB^Ù\^Ù\[Û\ÈNÙÙÙ\\Ü\ÜÚXÚÚ[ÈÜÚ][ÛÜÜËÙ]
-	ÝXÚÙ\Ê_NÙ_HB\Þ[ÈYÙ^]ÜÜÚ][ÛÙ[ÜÎXÝ^]ÜXÙNØ]X\ÛÛÝNÛÜÙHHÜÚ][Û[ÙÈHYK[HHÜÖÈ[WÜXÙHB]X[]HHÜÖÈ]X[]HBH
-^]ÜXÙHH[JH
-]X[]HÈLÈÛÛ\Ù[ÈÈÛ\ÂÙÙÙ\[ÊVUÞÜX\ÛÛWNÜÜÖÉÝXÚÙ\×_HÜÜÖÉÜÚYI×_H[O^Ù[_p¨^]^Ù^]ÜXÙ_p¨]O^Ü]X[]_HIÜH
-BÈÛÜÙH[]ØZ]Ù[ÛÜÙWÜÜÚ][ÛÜÖÈYK^]ÜXÙK
-BÈÙÈYB]ØZ]Ù[Ù×ÝYJÂXÚÙ\ÜÖÈXÚÙ\K]HÜËÙ]
-]HKÚYHÜÖÈÚYHKXÝ[ÛÙ[[WÜXÙH[K^]ÜXÙH^]ÜXÙK]X[]H]X[]KÛÛY[ÙHÜËÙ]
-ÛÛY[ÙHKX\ÛÛ[È^]ÜX\ÛÛHØ]YÛÜHÜËÙ]
-Ø]YÛÜHKÛÜÙYØ]]][YK]ÛÝÊ
-K\ÛÙÜX]
+                no_price=limit_price if side == "no" else None,
+            )
 
-KJBÈXÙHÙ[Ü\ÛØ[ÚH
-Y]H[ÝÙ]Y
-BYÛÛYË]WÝY[È[X\ÛÛÝ[
-ÑUQÖQTÈÑUQÓÈNNÜ\ÚYH^]^Ý]ZY]ZY
+            actual_order_id = result.get("order", {}).get("order_id", order_id)
+            logger.info(
+                f"ORDER PLACED: {quantity}x {side} {ticker} @ {limit_price}¢ "
+                f"(order_id={actual_order_id}, cost=${cost:.2f})"
+            )
+            return actual_order_id
 
+        except KalshiAPIError as e:
+            logger.error(f"Order failed for {ticker}: {e}")
+            return None
 
-K^ÎL_H]ØZ]Ù[Ø[ÚKXÙWÛÜ\XÚÙ\\ÜÖÈXÚÙ\KÛY[ÛÜ\ÚY[Ü\ÚYÚYO\ÜÖÈÚYHKÝÙ\
-KXÝ[ÛHÙ[ÛÝ[\]X[]K\WÏHX\Ù]
-B^Ù\^Ù\[Û\ÈNÙÙÙ\\ÜZ[YÈXÙH^]Ü\Ù_HBÙ[Z[WÜ
-ÏHÈ8¥ 8¥ XZ[ØØ[ÛÜ8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ \Þ[ÈYØØ[Ø[ÝYJÙ[HOXÝ[ÛH[ØØ[ÞXÛNK]ÚX\Ù]Â[\ÜÜÜ[]Y\ÂË[[^HÜØ[Y]\ÈÚ]Û]YB
-^XÝ]HY\Â
-KÚXÚÈ^\Ý[ÈÜÚ][ÛÂ]\ÈÝ[[X\HXÝÜH\ÚØ\Ù[ØØ[ØÛÝ[
-ÏHBÙ[\ÝÜØØ[Ý[YHH]][YK]ÛÝÊ
-K\ÛÙÜX]
+    # ── Position Monitoring ──────────────────────────────────────────────
 
-BÝ[[X\HHÂØØ[Û[X\Ù[ØØ[ØÛÝ[[Y\Ý[\Ù[\ÝÜØØ[Ý[YKX\Ù]×Ù]ÚYX\Ù]×Ù[\YX\Ù]×Ø[[^YY\×Ù^XÝ]Y\ÜÈ×KBNÈY\Ú[[ÙBN[H]ØZ]Ù[Ø[ÚKÙ]Ø[[ÙJ
-BÙ[[[ÙHH[Ù]
-[[ÙH
-HÈLÙ[XZ×Ø[[ÙHHX^
-Ù[XZ×Ø[[ÙKÙ[[[ÙJB^Ù\^Ù\[Û\ÈNÝ[[X\VÈ\ÜÈK\[
-[[ÙH]ÚÙ_HBÈ\ÚÈÚXÚÂYÝ]ØZ]Ù[ØÚXÚ×Ü\Ú×Û[Z]Ê
-NÝ[[X\VÈ\ÜÈK\[
-\ÚÈ[Z]ÈXXÚY8 %ÚÚ\[ÈØØ[B]\Ý[[X\BÈÚXÚÈ^\Ý[ÈÜÚ][ÛÈ\Ý]ØZ]Ù[ÚXÚ×ÜÜÚ][ÛÊ
-BÈ]ÚX\Ù]È
-YÚ[]HÈÙ][ÜJB[ÛX\Ù]ÈH×BÝ\ÛÜHÛBÜÈ[[ÙJÊNÈ\ÈÌX\Ù]ÂN\Ý[H]ØZ]Ù[Ø[ÚKÙ]ÛX\Ù]Ê[Z]LLÝ\ÛÜXÝ\ÛÜÝ]\ÏHÜ[
-BX\Ù]ÈH\Ý[Ù]
-X\Ù]È×JB[ÛX\Ù]Ë^[
-X\Ù]ÊBÝ\ÛÜH\Ý[Ù]
-Ý\ÛÜBYÝÝ\ÛÜÜÝX\Ù]ÎXZÂ^Ù\^Ù\[Û\ÈNÝ[[X\VÈ\ÜÈK\[
-X\Ù]]ÚÙ_HBXZÂÝ[[X\VÈX\Ù]×Ù]ÚYHH[[ÛX\Ù]ÊBÈ[\Ø[Y]\ÈHÛHÜH[[ÛX\Ù]ÈYÙ[Ú\×ÝYXXJJWBÝ[[X\VÈX\Ù]×Ù[\YHH[Ø[Y]\ÊBYÝØ[Y]\ÎÙÙÙ\[ÊÈYXXHX\Ù]ÈÝ[\ÈØØ[B]\Ý[[X\BÈÛÜHÛ[YH
-YÚ\Ý\Ý
-H[ZÙHÜØ[Y]\ËÛÜ
-Ù^O[[XHNKÙ]
-Û[YH
-HÜ]\ÙOUYJB×Ø[[^HHØ[Y]\ÖÎLHÈ[[^HÜLHÛ[YBÈ[[^HÚ]Û]YBÜ[ÜÜÚ][ÛÈH]ØZ]Ù[Ù]ÛÜ[ÜÜÚ][ÛÊ
-B^\Ý[×ÝXÚÙ\ÈHÜÈXÚÙ\HÜ[Ü[ÜÜÚ][ÛßBÜX\Ù][×Ø[[^NXÚÙ\HX\Ù]Ù]
-XÚÙ\BÈÚÚ\YÙH[XYH]HHÜÚ][ÛYXÚÙ\[^\Ý[×ÝXÚÙ\ÎÛÛ[YBÈÚÚ\YXÙ[H[[^YY]ØZ]Ù[Ø\×ÜXÙ[WØ[[^Y
-XÚÙ\Ý\ÏLÊNÛÛ[YBÈÙ]Ü\ÛÚÂNÜ\ÛÚÈH]ØZ]Ù[Ø[ÚKÙ]ÛÜ\ÛÚÊXÚÙ\B^Ù\^Ù\[ÛÜ\ÛÚÈHßBÈÛ]YH[[\Ú\Â[[\Ú\ÈH]ØZ]Ù[[[^\[[^WÛX\Ù]
-X\Ù][X\Ù]Ü\ÛÚÏ[Ü\ÛÚË[[ÙO\Ù[[[ÙKÜ[ÜÜÚ][ÛÏ[[Ü[ÜÜÚ][ÛÊK
-BYÝ[[\Ú\ÎÛÛ[YBÝ[[X\VÈX\Ù]×Ø[[^YH
-ÏHBÈÙÈ[[\Ú\Â]ØZ]Ù[Ù×Ø[[\Ú\ÊÂXÚÙ\XÚÙ\]HX\Ù]Ù]
-]HKY\×ÜXÙHX\Ù]Ù]
-Y\×ÜXÙHK×ÜXÙHX\Ù]Ù]
-×ÜXÙHKÛ[YHX\Ù]Ù]
-Û[YHKØX[]H[[\Ú\ËÙ]
-ÜXØ\Ý\ÜØX[]HKÛÛY[ÙH[[\Ú\ËÙ]
-ÛÛY[ÙHKÚYH[[\Ú\ËÙ]
-ÚYHKXÝ[Û[[\Ú\ËÙ]
-XÝ[ÛKX\ÛÛ[È[[\Ú\ËÙ]
-X\ÛÛ[ÈKYÙH[[\Ú\ËÙ]
-YÙHKXÚ\Ú[Û[[\Ú\ËÙ]
-XÝ[ÛKÛÜÝÝ\Ù[[\Ú\ËÙ]
-ÛÜÝÝ\Ù
-KJBÈ^XÝ]HYVBY[[\Ú\ËÙ]
-XÝ[ÛHOHVHÚYHH[[\Ú\ÖÈÚYHK\\
-BØX[]HHØ]
-[[\Ú\ËÙ]
-ÜXØ\Ý\ÜØX[]HJJB[Z]ÜXÙHH[
-[[\Ú\ËÙ]
-[Z]ÜXÙH
-JBÈÙ[HÚ^[ÂYÚYHOHQTÈ]X[]KÛÜÝHÙ[Ù[WÜÚ^JØX[]K[Z]ÜXÙKÙ[[[ÙJB[ÙNÈÜÈÚYK\HØX[]B]X[]KÛÜÝHÙ[Ù[WÜÚ^JHHØX[]KLH[Z]ÜXÙKÙ[[[ÙJBY]X[]H[ÛÜÝÜ\ÚYH]ØZ]Ù[Ù^XÝ]WÝYJ[[\Ú\Ë]X[]KÛÜÝ
-BYÜ\ÚYÈØ[Ý[]HÝÜÝZÙHÙ]][Â[HH[Z]ÜXÙBÝÜÛÜÜÈH[H
-
-HHÛÛYËÝÜÛÜÜ×ÜÝ
-BZÙWÜÙ]H[H
-
-H
-ÈÛÛYËÙ]Ý\Ù]ÜÝ
-B]ØZ]Ù[Ü[ÜÜÚ][ÛÂXÚÙ\XÚÙ\]HX\Ù]Ù]
-]HKÚYHÚYKXÝ[Û^H[WÜXÙH[K]X[]H]X[]KÛÜÝØ\Ú\ÈÛÜÝÛÛY[ÙH[[\Ú\ËÙ]
-ÛÛY[ÙHKYÙH[[\Ú\ËÙ]
-YÙHKX\ÛÛ[È[[\Ú\ËÙ]
-X\ÛÛ[ÈKØ]YÛÜH[[\Ú\ËÙ]
-Ø]YÛÜHKÝ]YÞHÛ]YWÙ\XÝ[Û[ÝÜÛÜÜÈÝÜÛÜÜËZÙWÜÙ]ZÙWÜÙ]Ü\ÚYÜ\ÚYJB]ØZ]Ù[Ù×ÝYJÂXÚÙ\XÚÙ\]HX\Ù]Ù]
-]HKÚYHÚYKXÝ[Û^H[WÜXÙH[K]X[]H]X[]KÛÛY[ÙH[[\Ú\ËÙ]
-ÛÛY[ÙHKX\ÛÛ[È[[\Ú\ËÙ]
-X\ÛÛ[ÈKØ]YÛÜH[[\Ú\ËÙ]
-Ø]YÛÜHKJBÝ[[X\VÈY\×Ù^XÝ]YH
-ÏHBÙÙÙ\[ÊQNVHÜ]X[]_^ÜÚY_HÝXÚÙ\HÛ[Z]ÜXÙ_p¨ÛÜÝIØÛÜÝKÛÛY[ÙO^Ø[[\Ú\ËÙ]
-	ØÛÛY[ÙIË
-N	_JH
-B^Ù\^Ù\[Û\ÈNÙÙÙ\\ÜØØ[\ÜÙ_H^×Ú[ÏUYJBÝ[[X\VÈ\ÜÈK\[
-ÝJJBÙ[\ÝÜØØ[Ü\Ý[ÈHÝ[[X\B]\Ý[[X\BÈ8¥ 8¥ Y[ÈÛÜ8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ \Þ[ÈY[Ù[NXZ[Y[ÈÛÜ8 %[ÈÛÛ[[Ý\ÛKÙ[[[ÈHYBÙÙÙ\[ÊOOHQSÈSÒSHÕTQOOHBÙÙÙ\[Ê[ÙNÉÓUIÈYÛÛYË]WÝY[È[ÙH	ÔTTßHBÙÙÙ\[Ê[[ÙN	ÜÙ[[[ÙNHBÚ[HÙ[[[ÎNÝ[[X\HH]ØZ]Ù[ØØ[Ø[ÝYJ
-BÙÙÙ\[ÊØØ[ÞÜÝ[[X\VÉÜØØ[Û[X\×_N]ÚY^ÜÝ[[X\VÉÛX\Ù]×Ù]ÚY	×_K[\Y^ÜÝ[[X\VÉÛX\Ù]×Ù[\Y	×_K[[^Y^ÜÝ[[X\VÉÛX\Ù]×Ø[[^Y	×_KYY^ÜÝ[[X\VÉÝY\×Ù^XÝ]Y	×_H
-B^Ù\^Ù\[Û\ÈNÙÙÙ\\ÜÛÜ\ÜÙ_H^×Ú[ÏUYJB]ØZ]\Þ[Ú[ËÛY\
-ÛÛYËØØ[Ú[\[ÜÙXÛÛÊB\Þ[ÈYÝÜ
-Ù[NÝÜHY[ÈÛÜÙ[[[ÈH[ÙB]ØZ]Ù[Ø[ÚKÛÜÙJ
-BÙÙÙ\[ÊY[È[Ú[HÝÜYBÈ8¥ 8¥ \ÚØ\]H8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ 8¥ \Þ[ÈYÙ]Ù\ÚØ\Ù]JÙ[HOXÝ]\[]HYYYÜH\ÚØ\ÜÚ][ÛÈH]ØZ]Ù[Ù]ÛÜ[ÜÜÚ][ÛÊ
-BY\ÈH]ØZ]Ù[Ù]ÝY\Ê[Z]LL
-B[[\Ù\ÈH]ØZ]Ù[Ù]ÜXÙ[Ø[[\Ù\Ê[Z]ML
-BÝ]ÈH]ØZ]Ù[Ù]Ü\ÜX[ÙWÜÝ]Ê
-BÈØ[Ý[]HÜÚ][Û	Ý[Ý[X[^YHÜ[ÜÚ][ÛÎYÙ]
-Ý\[ÜXÙHH[Ù]
-[WÜXÙHNH
-ÈÝ\[ÜXÙHHHÈ[WÜXÙHJH
-È]X[]HHÈLÈ[X[^YÜHHÝ[
-BÝ[Ý[X[^Y
-ÏH[ÙNÈ[X[^YÜHH]\Â[[ÙHÙ[[[ÙKXZ×Ø[[ÙHÙ[XZ×Ø[[ÙKZ[WÜÝ[
-Ù[Z[WÜKÝ[Ý[X[^YÜÝ[
-Ý[Ý[X[^YKZWØÛÜÝÝÙ^HÝ[
-Ù[[[^\Ý[ØÛÜÝ
+    async def check_positions(self):
+        """Monitor open positions and execute exit strategies."""
+        positions = await self.db.get_open_positions()
+        if not positions:
+            return
 
-KÜÚ][ÛÈÜÚ][ÛËY\ÈY\Ë[[\Ù\È[[\Ù\ËÝ]ÈÝ]Ë[Ú[HÂ[[ÈÙ[[[Ë]WÛ[ÙHÛÛYË]WÝY[ËØØ[ØÛÝ[Ù[ØØ[ØÛÝ[\ÝÜØØ[Ù[\ÝÜØØ[Ý[YK\ÝÜØØ[Ü\Ý[ÈÙ[\ÝÜØØ[Ü\Ý[ËKÛÛYÈÂZ[ØÛÛY[ÙHÛÛYËZ[ØÛÛY[ÙKZ[ÙYÙHÛÛYËZ[ÙYÙKÙ[WÙXÝ[ÛÛÛYËÙ[WÙXÝ[ÛX^ÜÜÚ][ÛÜÝÛÛYËX^ÜÜÚ][ÛÜÝX^ÜÜÚ][ÛÈÛÛYËX^ÜÜÚ][ÛËÙ]Ý\Ù]ÛÛYËÙ]Ý\Ù]ÜÝÝÜÛÜÜÈÛÛYËÝÜÛÜÜ×ÜÝKB
+        for pos in positions:
+            try:
+                ticker = pos["ticker"]
+
+                # Get current market price
+                try:
+                    market = await self.kalshi.get_market(ticker)
+                    market_data = market.get("market", market)
+                except Exception:
+                    continue
+
+                side = pos["side"].upper()
+                entry_price = pos["entry_price"]
+
+                # Current price based on our side
+                if side == "YES":
+                    current = (market_data.get("yes_price") or market_data.get("yes_bid") or entry_price)
+                else:
+                    current = (market_data.get("no_price") or market_data.get("no_bid") or entry_price)
+
+                # Handle decimal vs cents
+                if isinstance(current, float) and current < 1:
+                    current = current * 100
+
+                # Update current price in DB
+                await self.db.update_position(pos["id"], {"current_price": current})
+
+                # Check exit conditions
+                if entry_price > 0:
+                    pnl_pct = (current - entry_price) / entry_price
+
+                    # Profit target
+                    if pnl_pct >= config.profit_target_pct:
+                        await self._exit_position(pos, current, "PROFIT_TARGET")
+                        continue
+
+                    # Stop loss
+                    if pnl_pct <= -config.stop_loss_pct:
+                        await self._exit_position(pos, current, "STOP_LOSS")
+                        continue
+
+                # Time-based exit
+                created = datetime.fromisoformat(pos["created_at"])
+                hours_held = (datetime.utcnow() - created).total_seconds() / 3600
+                if hours_held > config.max_hold_hours:
+                    await self._exit_position(pos, current, "TIME_EXIT")
+                    continue
+
+                # Check if market is settled
+                status = market_data.get("status", "")
+                if status in ("settled", "closed", "finalized"):
+                    result = market_data.get("result", "")
+                    if result:
+                        exit_price = 100 if result.upper() == side else 0
+                        await self._exit_position(pos, exit_price, f"SETTLED_{result.upper()}")
+
+            except Exception as e:
+                logger.error(f"Error checking position {pos.get('ticker')}: {e}")
+
+    async def _exit_position(self, pos: Dict, exit_price: float, reason: str):
+        """Close a position and log the trade."""
+        entry = pos["entry_price"]
+        quantity = pos["quantity"]
+        pnl = (exit_price - entry) * quantity / 100  # Convert cents to dollars
+
+        logger.info(
+            f"EXIT [{reason}]: {pos['ticker']} {pos['side']} "
+            f"entry={entry}¢ exit={exit_price}¢ qty={quantity} pnl=${pnl:.2f}"
+        )
+
+        # Close in DB
+        await self.db.close_position(pos["id"], exit_price, pnl)
+
+        # Log trade
+        await self.db.log_trade({
+            "ticker": pos["ticker"],
+            "title": pos.get("title"),
+            "side": pos["side"],
+            "action": "sell",
+            "entry_price": entry,
+            "exit_price": exit_price,
+            "quantity": quantity,
+            "pnl": pnl,
+            "confidence": pos.get("confidence"),
+            "reasoning": f"Exit: {reason}",
+            "category": pos.get("category"),
+            "closed_at": datetime.utcnow().isoformat(),
+        })
+
+        # Place sell order on Kalshi (if live and not settled)
+        if config.live_trading and reason not in ("SETTLED_YES", "SETTLED_NO"):
+            try:
+                order_id = f"exit-{uuid.uuid4().hex[:12]}"
+                await self.kalshi.place_order(
+                    ticker=pos["ticker"],
+                    client_order_id=order_id,
+                    side=pos["side"].lower(),
+                    action="sell",
+                    count=quantity,
+                    type_="market",
+                )
+            except Exception as e:
+                logger.error(f"Failed to place exit order: {e}")
+
+        self.daily_pnl += pnl
+
+    # ── Main Scan Loop ───────────────────────────────────────────────────
+
+    async def scan_and_trade(self) -> Dict:
+        """
+        Run one full scan cycle:
+        1. Fetch markets
+        2. Filter for opportunities
+        3. Analyze top candidates with Claude
+        4. Execute trades
+        5. Check existing positions
+
+        Returns summary dict for the dashboard.
+        """
+        self.scan_count += 1
+        self.last_scan_time = datetime.utcnow().isoformat()
+        summary = {
+            "scan_number": self.scan_count,
+            "timestamp": self.last_scan_time,
+            "markets_fetched": 0,
+            "markets_filtered": 0,
+            "markets_analyzed": 0,
+            "trades_executed": 0,
+            "errors": [],
+        }
+
+        try:
+            # Refresh balance
+            try:
+                bal = await self.kalshi.get_balance()
+                self.balance = bal.get("balance", 0) / 100
+                self.peak_balance = max(self.peak_balance, self.balance)
+            except Exception as e:
+                summary["errors"].append(f"Balance fetch: {e}")
+
+            # Risk check
+            if not await self._check_risk_limits():
+                summary["errors"].append("Risk limits breached — skipping scan")
+                return summary
+
+            # Check existing positions first
+            await self.check_positions()
+
+            # Fetch markets via events (Kalshi v2: get_markets list only returns
+            # MVE parlays; real tradeable markets are nested under events)
+            all_markets = []
+            try:
+                events_result = await self.kalshi.get_events(limit=50, status="open")
+                events = events_result.get("events", [])
+                for event in events:
+                    event_ticker = event.get("event_ticker")
+                    if not event_ticker:
+                        continue
+                    try:
+                        result = await self.kalshi.get_markets(
+                            limit=100, event_ticker=event_ticker
+                        )
+                        all_markets.extend(result.get("markets", []))
+                    except Exception as e:
+                        summary["errors"].append(f"Market fetch {event_ticker}: {e}")
+            except Exception as e:
+                summary["errors"].append(f"Events fetch: {e}")
+
+            summary["markets_fetched"] = len(all_markets)
+
+            # Filter
+            candidates = [m for m in all_markets if self._is_tradeable(m)]
+            summary["markets_filtered"] = len(candidates)
+
+            if not candidates:
+                logger.info("No tradeable markets found this scan")
+                return summary
+
+            # Sort by volume (highest first) and take top N
+            candidates.sort(key=lambda m: self._to_float(m.get("volume_fp") or m.get("volume")), reverse=True)
+            to_analyze = candidates[:10]  # Analyze top 10 by volume
+
+            # Analyze with Claude
+            open_positions = await self.db.get_open_positions()
+            existing_tickers = {p["ticker"] for p in open_positions}
+
+            for market in to_analyze:
+                ticker = market.get("ticker", "")
+
+                # Skip if we already have a position
+                if ticker in existing_tickers:
+                    continue
+
+                # Skip if recently analyzed
+                if await self.db.was_recently_analyzed(ticker, hours=3):
+                    continue
+
+                # Get orderbook
+                try:
+                    orderbook = await self.kalshi.get_orderbook(ticker)
+                except Exception:
+                    orderbook = {}
+
+                # Claude analysis
+                analysis = await self.analyzer.analyze_market(
+                    market=market,
+                    orderbook=orderbook,
+                    balance=self.balance,
+                    open_positions=len(open_positions),
+                )
+
+                if not analysis:
+                    continue
+
+                summary["markets_analyzed"] += 1
+
+                # Log analysis
+                # Normalize prices for DB logging (v2 API uses _dollars fields as strings)
+                def _price_cents(d_field, l_field):
+                    v = self._to_float(market.get(d_field) or market.get(l_field))
+                    if v <= 0:
+                        return 0
+                    return int(v * 100) if v < 1 else int(v)
+                _yp = _price_cents("yes_bid_dollars", "yes_price")
+                _np = _price_cents("no_bid_dollars", "no_price")
+                _vol = self._to_float(market.get("volume_fp") or market.get("volume"))
+                await self.db.log_analysis({
+                    "ticker": ticker,
+                    "title": market.get("title"),
+                    "yes_price": _yp,
+                    "no_price": _np,
+                    "volume": _vol,
+                    "probability": analysis.get("forecaster_probability"),
+                    "confidence": analysis.get("confidence"),
+                    "side": analysis.get("side"),
+                    "action": analysis.get("action"),
+                    "reasoning": analysis.get("reasoning"),
+                    "edge": analysis.get("edge"),
+                    "decision": analysis.get("action"),
+                    "cost_usd": analysis.get("cost_usd", 0),
+                })
+
+                # Execute if BUY
+                if analysis.get("action") == "BUY":
+                    side = analysis["side"].upper()
+                    probability = float(analysis.get("forecaster_probability", 0.5))
+                    limit_price = int(analysis.get("limit_price", 0))
+
+                    # Kelly sizing
+                    if side == "YES":
+                        quantity, cost = self.kelly_size(probability, limit_price, self.balance)
+                    else:
+                        # For NO side, flip the probability
+                        quantity, cost = self.kelly_size(1 - probability, 100 - limit_price, self.balance)
+
+                    if quantity > 0 and cost > 0:
+                        order_id = await self._execute_trade(analysis, quantity, cost)
+
+                        if order_id:
+                            # Calculate stop/take profit levels
+                            entry = limit_price
+                            stop_loss = entry * (1 - config.stop_loss_pct)
+                            take_profit = entry * (1 + config.profit_target_pct)
+
+                            await self.db.open_position({
+                                "ticker": ticker,
+                                "title": market.get("title"),
+                                "side": side,
+                                "action": "buy",
+                                "entry_price": entry,
+                                "quantity": quantity,
+                                "cost_basis": cost,
+                                "confidence": analysis.get("confidence"),
+                                "edge": analysis.get("edge"),
+                                "reasoning": analysis.get("reasoning"),
+                                "category": analysis.get("category"),
+                                "strategy": "claude_directional",
+                                "stop_loss": stop_loss,
+                                "take_profit": take_profit,
+                                "order_id": order_id,
+                            })
+
+                            await self.db.log_trade({
+                                "ticker": ticker,
+                                "title": market.get("title"),
+                                "side": side,
+                                "action": "buy",
+                                "entry_price": entry,
+                                "quantity": quantity,
+                                "confidence": analysis.get("confidence"),
+                                "reasoning": analysis.get("reasoning"),
+                                "category": analysis.get("category"),
+                            })
+
+                            summary["trades_executed"] += 1
+                            logger.info(
+                                f"TRADE: BUY {quantity}x {side} {ticker} @ {limit_price}¢ "
+                                f"(cost=${cost:.2f}, confidence={analysis.get('confidence', 0):.0%})"
+                            )
+
+        except Exception as e:
+            logger.error(f"Scan error: {e}", exc_info=True)
+            summary["errors"].append(str(e))
+
+        self.last_scan_results = summary
+        return summary
+
+    # ── Trading Loop ─────────────────────────────────────────────────────
+
+    async def run(self):
+        """Main trading loop — runs continuously."""
+        self.running = True
+        logger.info("=== TRADING ENGINE STARTED ===")
+        logger.info(f"Mode: {'LIVE' if config.live_trading else 'PAPER'}")
+        logger.info(f"Balance: ${self.balance:.2f}")
+
+        while self.running:
+            try:
+                summary = await self.scan_and_trade()
+                logger.info(
+                    f"Scan #{summary['scan_number']}: "
+                    f"fetched={summary['markets_fetched']}, "
+                    f"filtered={summary['markets_filtered']}, "
+                    f"analyzed={summary['markets_analyzed']}, "
+                    f"traded={summary['trades_executed']}"
+                )
+            except Exception as e:
+                logger.error(f"Loop error: {e}", exc_info=True)
+
+            await asyncio.sleep(config.scan_interval_seconds)
+
+    async def stop(self):
+        """Stop the trading loop."""
+        self.running = False
+        await self.kalshi.close()
+        logger.info("Trading engine stopped")
+
+    # ── Dashboard Data ───────────────────────────────────────────────────
+
+    async def get_dashboard_data(self) -> Dict:
+        """Return all data needed for the dashboard."""
+        positions = await self.db.get_open_positions()
+        trades = await self.db.get_trades(limit=100)
+        analyses = await self.db.get_recent_analyses(limit=50)
+        stats = await self.db.get_performance_stats()
+
+        # Calculate position P&L
+        total_unrealized = 0
+        for p in positions:
+            if p.get("current_price") and p.get("entry_price"):
+                pnl = (p["current_price"] - p["entry_price"]) * p["quantity"] / 100
+                p["unrealized_pnl"] = round(pnl, 2)
+                total_unrealized += pnl
+            else:
+                p["unrealized_pnl"] = 0
+
+        return {
+            "balance": self.balance,
+            "peak_balance": self.peak_balance,
+            "daily_pnl": round(self.daily_pnl, 2),
+            "total_unrealized_pnl": round(total_unrealized, 2),
+            "ai_cost_today": round(self.analyzer.total_cost, 4),
+            "positions": positions,
+            "trades": trades,
+            "analyses": analyses,
+            "stats": stats,
+            "engine": {
+                "running": self.running,
+                "live_mode": config.live_trading,
+                "scan_count": self.scan_count,
+                "last_scan": self.last_scan_time,
+                "last_scan_results": self.last_scan_results,
+            },
+            "config": {
+                "min_confidence": config.min_confidence,
+                "min_edge": config.min_edge,
+                "kelly_fraction": config.kelly_fraction,
+                "max_position_pct": config.max_position_pct,
+                "max_positions": config.max_positions,
+                "profit_target": config.profit_target_pct,
+                "stop_loss": config.stop_loss_pct,
+            },
+        }

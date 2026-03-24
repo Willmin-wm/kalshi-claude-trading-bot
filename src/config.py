@@ -1,6 +1,6 @@
 """
 Configuration for Kalshi Trading System.
-All settings in one place â tuned for disciplined live trading.
+All settings in one place — tuned for disciplined live trading.
 """
 
 import os
@@ -22,10 +22,10 @@ class Config:
     live_trading: bool = field(default_factory=lambda: os.getenv("LIVE_TRADING_ENABLED", "false").lower() == "true")
 
     # === Market Filtering ===
-    min_volume: int = 200              # Minimum contract volume to consider
-    max_expiry_days: int = 14          # Max days until expiry
-    min_yes_price: int = 5             # Min YES price in cents (avoid penny contracts)
-    max_yes_price: int = 95            # Max YES price in cents (avoid near-certainties)
+    min_volume: int = 20               # Minimum contract volume to consider (lowered for dev/debug)
+    max_expiry_days: int = 36500       # ~100 years — Kalshi long-term markets expire in years
+    min_yes_price: int = 1             # Min YES price in cents (allow broader range)
+    max_yes_price: int = 999999999            # Max YES price in cents (allow broader range)
 
     # === AI Analysis ===
     claude_model: str = "claude-sonnet-4-20250514"

@@ -1,5 +1,5 @@
 """
-Claude-powered market analyzer â replaces the 5-model ensemble with a single,
+Claude-powered market analyzer — replaces the 5-model ensemble with a single,
 structured Claude analysis using the Forecaster/Critic/Trader debate pattern.
 
 Returns structured JSON with: action, side, probability, confidence, reasoning.
@@ -18,13 +18,13 @@ logger = logging.getLogger("claude_analyzer")
 
 ANALYSIS_PROMPT = """You are an elite Kalshi prediction market trader. You combine three expert perspectives in one analysis:
 
-1. **FORECASTER** â Estimate the true YES probability using all available data, base rates, and reasoning.
-2. **CRITIC** â Challenge the forecast. Identify biases, missing context, and overconfidence.
-3. **TRADER** â Make the final decision factoring in the forecaster's estimate, the critic's objections, and the market price.
+1. **FORECASTER** — Estimate the true YES probability using all available data, base rates, and reasoning.
+2. **CRITIC** — Challenge the forecast. Identify biases, missing context, and overconfidence.
+3. **TRADER** — Make the final decision factoring in the forecaster's estimate, the critic's objections, and the market price.
 
 ## STRICT RULES
 - You MUST output valid JSON and ONLY JSON. No text before or after.
-- EV = (Your True Probability Ã 100) â Market Price. Only trade if |EV| â¥ {min_edge_pct}%.
+- EV = (Your True Probability × 100) − Market Price. Only trade if |EV| ≥ {min_edge_pct}%.
 - Be CALIBRATED: if you're 70% confident, you should be right 70% of the time. Avoid overconfidence.
 - Consider base rates, historical precedent, current conditions, and timing.
 - For sports: consider team records, injuries, home/away, recent performance, matchup history.
@@ -35,8 +35,8 @@ ANALYSIS_PROMPT = """You are an elite Kalshi prediction market trader. You combi
 ## MARKET DATA
 - **Title:** {title}
 - **Subtitle/Rules:** {subtitle}
-- **YES Price:** {yes_price}Â¢ (market-implied probability: {yes_price}%)
-- **NO Price:** {no_price}Â¢ (market-implied probability: {no_price}%)
+- **YES Price:** {yes_price}¢ (market-implied probability: {yes_price}%)
+- **NO Price:** {no_price}¢ (market-implied probability: {no_price}%)
 - **Volume:** {volume:,} contracts
 - **Open Interest:** {open_interest}
 - **Days to Expiry:** {days_to_expiry}
@@ -48,9 +48,9 @@ ANALYSIS_PROMPT = """You are an elite Kalshi prediction market trader. You combi
 - **Open Positions:** {open_positions}
 
 ## ORDERBOOK
-- **Best Bid (YES):** {best_bid}Â¢
-- **Best Ask (YES):** {best_ask}Â¢
-- **Spread:** {spread}Â¢
+- **Best Bid (YES):** {best_bid}¢
+- **Best Ask (YES):** {best_ask}¢
+- **Spread:** {spread}¢
 
 ## OUTPUT FORMAT (strict JSON only)
 {{
@@ -66,7 +66,7 @@ ANALYSIS_PROMPT = """You are an elite Kalshi prediction market trader. You combi
 
 If SKIP, set side to "NONE", limit_price to 0, edge to 0.0.
 
-Think step by step through forecaster â critic â trader, then output ONLY the JSON."""
+Think step by step through forecaster → critic → trader, then output ONLY the JSON."""
 
 
 class ClaudeAnalyzer:
@@ -131,17 +131,38 @@ class ClaudeAnalyzer:
         ticker = market.get("ticker", "")
         title = market.get("title", "Unknown")
         subtitle = market.get("subtitle", market.get("rules_primary", ""))
-        yes_price = market.get("yes_price", 50) if market.get("yes_price") else 50
-        no_price = market.get("no_price", 50) if market.get("no_price") else 50
 
-        # Handle prices â Kalshi returns cents (1-99)
-        # Some API responses might be in decimal (0.01-0.99)
-        if isinstance(yes_price, float) and yes_price < 1:
-            yes_price = int(yes_price * 100)
-            no_price = int(no_price * 100)
+        # Kalshi v2 returns prices as strings (e.g. "0.6000") in dollars (0.0–1.0 range)
+        # Fall back to legacy yes_price/yes_bid (cents) for compatibility
+        def _safe_float(v):
+            try: return float(v) if v is not None else 0.0
+            except: return 0.0
 
-        volume = market.get("volume", 0) or 0
-        open_interest = market.get("open_interest", 0) or 0
+        def _to_cents(dollar_fields, legacy_fields):
+            for f in dollar_fields:
+                v = _safe_float(market.get(f))
+                if v > 0:
+                    return int(v * 100)
+            for f in legacy_fields:
+                v = _safe_float(market.get(f))
+                if v > 0:
+                    return int(v * 100) if v < 1 else int(v)
+            return 50  # default midpoint
+
+        yes_price = _to_cents(
+            ["yes_bid_dollars", "yes_ask_dollars", "last_price_dollars"],
+            ["yes_price", "yes_bid"],
+        )
+        no_price = _to_cents(
+            ["no_bid_dollars", "no_ask_dollars"],
+            ["no_price", "no_bid"],
+        )
+        # Infer no_price from yes_price if missing
+        if no_price == 50 and yes_price != 50:
+            no_price = 100 - yes_price
+
+        volume = _safe_float(market.get("volume_fp") or market.get("volume"))
+        open_interest = _safe_float(market.get("open_interest_fp") or market.get("open_interest"))
         category = market.get("category", market.get("event_ticker", "unknown"))
 
         # Calculate days to expiry
@@ -165,7 +186,7 @@ class ClaudeAnalyzer:
         if orderbook:
             yes_bids = orderbook.get("yes", []) if isinstance(orderbook.get("yes"), list) else []
             yes_asks = orderbook.get("no", []) if isinstance(orderbook.get("no"), list) else []
-            # The orderbook structure varies â handle both formats
+            # The orderbook structure varies — handle both formats
             if isinstance(orderbook.get("orderbook"), dict):
                 ob = orderbook["orderbook"]
                 yes_bids = ob.get("yes", [])
@@ -260,7 +281,7 @@ class ClaudeAnalyzer:
                     result["reasoning"] = f"Invalid limit price: {limit_price}"
 
             logger.info(
-                f"Analysis: {ticker} â {result['action']} "
+                f"Analysis: {ticker} → {result['action']} "
                 f"(conf={result.get('confidence', 0):.0%}, edge={result.get('edge', 0):.1%}, "
                 f"cost=${cost:.4f})"
             )

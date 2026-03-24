@@ -1,5 +1,5 @@
 """
-Kalshi API Client â handles auth (RSA-PSS), market data, and order execution.
+Kalshi API Client — handles auth (RSA-PSS), market data, and order execution.
 Adapted from ryanfrigo/kalshi-ai-trading-bot with streamlined async implementation.
 """
 
@@ -110,7 +110,7 @@ class KalshiClient:
                 await asyncio.sleep(0.5 * (2 ** attempt))
         raise KalshiAPIError(f"Failed after {retries} retries: {last_err}")
 
-    # ââ Account ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Account ──────────────────────────────────────────────────────────
     async def get_balance(self) -> Dict:
         return await self._request("GET", "/trade-api/v2/portfolio/balance")
 
@@ -132,7 +132,7 @@ class KalshiClient:
             params["status"] = status
         return await self._request("GET", "/trade-api/v2/portfolio/orders", params=params or None)
 
-    # ââ Markets ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Markets ──────────────────────────────────────────────────────────
     async def get_markets(
         self,
         limit: int = 100,
@@ -169,7 +169,7 @@ class KalshiClient:
             params["cursor"] = cursor
         return await self._request("GET", "/trade-api/v2/events", params=params)
 
-    # ââ Trading ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Trading ──────────────────────────────────────────────────────────
     async def place_order(
         self,
         ticker: str,
@@ -198,7 +198,7 @@ class KalshiClient:
     async def cancel_order(self, order_id: str) -> Dict:
         return await self._request("DELETE", f"/trade-api/v2/portfolio/orders/{order_id}")
 
-    # ââ Cleanup ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Cleanup ──────────────────────────────────────────────────────────
     async def close(self):
         await self.client.aclose()
 

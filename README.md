@@ -2,57 +2,57 @@
 
 An AI-powered prediction market trading bot for [Kalshi](https://kalshi.com) using Claude as the sole decision engine. Built with a Forecaster/Critic/Trader debate pattern, Kelly Criterion position sizing, and a real-time React dashboard.
 
-Inspired by [ryanfrigo/kalshi-ai-trading-bot](https://github.com/ryanfrigo/kalshi-ai-trading-bot) â simplified from a 5-model ensemble to a single Claude-powered brain with cleaner architecture.
+Inspired by [ryanfrigo/kalshi-ai-trading-bot](https://github.com/ryanfrigo/kalshi-ai-trading-bot) — simplified from a 5-model ensemble to a single Claude-powered brain with cleaner architecture.
 
 ## Architecture
 
 ```
-ââââââââââââââââââââââââââââââââââââââââââââââââ
-â            React Dashboard (:8420)            â
-â   Balance Â· P&L Â· Positions Â· Trades Â· AI    â
-ââââââââââââââââââââ¬ââââââââââââââââââââââââââââ
-                   â REST API (FastAPI)
-ââââââââââââââââââââ´ââââââââââââââââââââââââââââ
-â              Trading Engine                   â
-â  ââââââââââââââââ  ââââââââââââââââââââââââ  â
-â  â Kalshi API   â  â Claude Analyzer      â  â
-â  â RSA-PSS Auth â  â Forecaster/Critic/   â  â
-â  â Orders/Mkts  â  â Trader Debate        â  â
-â  ââââââââââââââââ  ââââââââââââââââââââââââ  â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-â  â Risk Manager                             â â
-â  â Kelly Criterion Â· Drawdown Â· Sector Caps â â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-â  â Position Tracker                         â â
-â  â Stop-Loss Â· Take-Profit Â· Time Exits    â â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-â  â SQLite Database                          â â
-â  â Positions Â· Trades Â· Analyses Â· Stats    â â
-â  ââââââââââââââââââââââââââââââââââââââââââââ â
-ââââââââââââââââââââââââââââââââââââââââââââââââ
+┌──────────────────────────────────────────────┐
+│            React Dashboard (:8420)            │
+│   Balance · P&L · Positions · Trades · AI    │
+└──────────────────┬───────────────────────────┘
+                   │ REST API (FastAPI)
+┌──────────────────┴───────────────────────────┐
+│              Trading Engine                   │
+│  ┌──────────────┐  ┌──────────────────────┐  │
+│  │ Kalshi API   │  │ Claude Analyzer      │  │
+│  │ RSA-PSS Auth │  │ Forecaster/Critic/   │  │
+│  │ Orders/Mkts  │  │ Trader Debate        │  │
+│  └──────────────┘  └──────────────────────┘  │
+│  ┌──────────────────────────────────────────┐ │
+│  │ Risk Manager                             │ │
+│  │ Kelly Criterion · Drawdown · Sector Caps │ │
+│  └──────────────────────────────────────────┘ │
+│  ┌──────────────────────────────────────────┐ │
+│  │ Position Tracker                         │ │
+│  │ Stop-Loss · Take-Profit · Time Exits    │ │
+│  └──────────────────────────────────────────┘ │
+│  ┌──────────────────────────────────────────┐ │
+│  │ SQLite Database                          │ │
+│  │ Positions · Trades · Analyses · Stats    │ │
+│  └──────────────────────────────────────────┘ │
+└──────────────────────────────────────────────┘
 ```
 
 ## How It Works
 
 Each scan cycle (every 60 seconds):
 
-1. **Fetch** â Pull open markets from Kalshi API, paginating up to 300 markets
-2. **Filter** â Keep markets with volume > 200, YES price between 5Â¢â95Â¢, expiry < 14 days
-3. **Analyze** â Send top 10 candidates (by volume) to Claude using a structured debate prompt:
+1. **Fetch** — Pull open markets from Kalshi API, paginating up to 300 markets
+2. **Filter** — Keep markets with volume > 200, YES price between 5¢–95¢, expiry < 14 days
+3. **Analyze** — Send top 10 candidates (by volume) to Claude using a structured debate prompt:
    - **Forecaster**: estimates true YES probability from data, base rates, and reasoning
    - **Critic**: challenges assumptions, identifies biases and missing context
    - **Trader**: makes the final BUY/SKIP decision based on the debate
-4. **Size** â Calculate position using fractional Kelly Criterion (quarter-Kelly)
-5. **Execute** â Place limit orders on Kalshi via authenticated API
-6. **Monitor** â Check positions every 30s for profit targets, stop losses, time exits, and settlements
+4. **Size** — Calculate position using fractional Kelly Criterion (quarter-Kelly)
+5. **Execute** — Place limit orders on Kalshi via authenticated API
+6. **Monitor** — Check positions every 30s for profit targets, stop losses, time exits, and settlements
 
 ## Risk Controls
 
 | Control | Setting | Purpose |
 |---------|---------|---------|
-| Kelly Fraction | 0.25Ã | Quarter-Kelly prevents ruin from estimation error |
+| Kelly Fraction | 0.25× | Quarter-Kelly prevents ruin from estimation error |
 | Max Position | 3% of portfolio | No single bet can blow up the account |
 | Min Confidence | 60% | Claude must be at least 60% confident |
 | Min Edge | 5% | Our probability must beat market by 5%+ |
@@ -86,9 +86,9 @@ cp .env.example .env
 
 ### Configure API Keys
 
-1. **Kalshi API Key** â Go to [Kalshi Settings â API](https://kalshi.com/account/settings), create a key, and download the RSA private key
+1. **Kalshi API Key** — Go to [Kalshi Settings → API](https://kalshi.com/account/settings), create a key, and download the RSA private key
 2. **Save private key** as `kalshi_private_key.pem` in the project root
-3. **Anthropic API Key** â Get one from [console.anthropic.com](https://console.anthropic.com)
+3. **Anthropic API Key** — Get one from [console.anthropic.com](https://console.anthropic.com)
 4. **Edit `.env`** with your keys
 
 ### Run
@@ -112,28 +112,28 @@ python run.py
 
 The React dashboard at `http://localhost:8420` shows:
 
-- **Balance & P&L** â Live account balance, daily P&L, unrealized gains
-- **Open Positions** â All active trades with entry price, current price, confidence, unrealized P&L
-- **Trade History** â Completed trades with entry/exit prices, P&L, and reasoning
-- **AI Analyses** â Every market Claude analyzed with probability, edge, confidence, and decision
-- **Live Markets** â Tradeable markets from Kalshi, sorted by volume
-- **Engine Controls** â Start/stop the auto-trading loop or trigger manual scans
+- **Balance & P&L** — Live account balance, daily P&L, unrealized gains
+- **Open Positions** — All active trades with entry price, current price, confidence, unrealized P&L
+- **Trade History** — Completed trades with entry/exit prices, P&L, and reasoning
+- **AI Analyses** — Every market Claude analyzed with probability, edge, confidence, and decision
+- **Live Markets** — Tradeable markets from Kalshi, sorted by volume
+- **Engine Controls** — Start/stop the auto-trading loop or trigger manual scans
 
 ## Project Structure
 
 ```
-âââ run.py                  # Entry point (--test, --scan, --status, or server)
-âââ dashboard.html          # Single-file React dashboard
-âââ requirements.txt        # Python dependencies
-âââ .env.example            # Environment variable template
-âââ src/
-â   âââ config.py           # All settings in one place
-â   âââ kalshi_client.py    # Kalshi REST API (RSA-PSS auth, orders, markets)
-â   âââ claude_analyzer.py  # Claude market analysis (Forecaster/Critic/Trader)
-â   âââ trading_engine.py   # Orchestrator (scan, size, execute, monitor)
-â   âââ database.py         # SQLite persistence (positions, trades, analyses)
-âââ api/
-    âââ server.py           # FastAPI backend (12 endpoints + engine controls)
+├── run.py                  # Entry point (--test, --scan, --status, or server)
+├── dashboard.html          # Single-file React dashboard
+├── requirements.txt        # Python dependencies
+├── .env.example            # Environment variable template
+├── src/
+│   ├── config.py           # All settings in one place
+│   ├── kalshi_client.py    # Kalshi REST API (RSA-PSS auth, orders, markets)
+│   ├── claude_analyzer.py  # Claude market analysis (Forecaster/Critic/Trader)
+│   ├── trading_engine.py   # Orchestrator (scan, size, execute, monitor)
+│   └── database.py         # SQLite persistence (positions, trades, analyses)
+└── api/
+    └── server.py           # FastAPI backend (12 endpoints + engine controls)
 ```
 
 ## API Endpoints
@@ -167,7 +167,7 @@ max_positions = 10       # Concurrent position limit
 
 ## Disclaimer
 
-This is experimental software for educational purposes. Trading on prediction markets involves real financial risk. Past performance does not guarantee future results. Use at your own risk â start with paper trading (`LIVE_TRADING_ENABLED=false`) before risking real money.
+This is experimental software for educational purposes. Trading on prediction markets involves real financial risk. Past performance does not guarantee future results. Use at your own risk — start with paper trading (`LIVE_TRADING_ENABLED=false`) before risking real money.
 
 ## Credits
 

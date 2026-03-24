@@ -1,5 +1,5 @@
 """
-FastAPI server â serves dashboard data and provides control endpoints.
+FastAPI server — serves dashboard data and provides control endpoints.
 Runs the trading engine in the background.
 """
 
@@ -33,7 +33,7 @@ engine_task = None
 async def lifespan(app: FastAPI):
     global engine_task
     await engine.initialize()
-    logger.info(f"Server starting â balance: ${engine.balance:.2f}")
+    logger.info(f"Server starting — balance: ${engine.balance:.2f}")
     yield
     if engine_task:
         engine.running = False
@@ -50,7 +50,7 @@ app.add_middleware(
 )
 
 
-# ââ Dashboard ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Dashboard ────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def serve_dashboard():
@@ -63,11 +63,11 @@ async def serve_dashboard():
     return HTMLResponse("<h1>Dashboard not found</h1>", status_code=404)
 
 
-# ââ API Endpoints ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── API Endpoints ────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    """Full dashboard payload â positions, trades, analyses, stats."""
+    """Full dashboard payload — positions, trades, analyses, stats."""
     return await engine.get_dashboard_data()
 
 
@@ -102,19 +102,39 @@ async def get_stats():
 
 @app.get("/api/markets")
 async def get_markets(limit: int = 50):
-    """Fetch live markets from Kalshi (filtered)."""
+    """Fetch live markets from Kalshi for display.
+
+    Kalshi's get_markets list endpoint returns only MVE parlay markets.
+    Real tradeable markets are nested under events, so we fetch events first
+    then pull markets for each event.
+    """
+    def _vol(m):
+        try: return float(m.get("volume_fp") or m.get("volume") or 0)
+        except: return 0.0
+
     try:
-        result = await engine.kalshi.get_markets(limit=limit, status="open")
-        markets = result.get("markets", [])
-        # Filter and enrich
-        filtered = [m for m in markets if engine._is_tradeable(m)]
-        filtered.sort(key=lambda m: m.get("volume", 0) or 0, reverse=True)
-        return {"markets": filtered[:limit], "total": len(filtered)}
+        all_markets = []
+
+        # Fetch open events and get their markets (real individual markets)
+        events_result = await engine.kalshi.get_events(limit=20, status="open")
+        events = events_result.get("events", [])
+        for event in events:
+            event_ticker = event.get("event_ticker")
+            if not event_ticker:
+                continue
+            try:
+                result = await engine.kalshi.get_markets(limit=20, event_ticker=event_ticker)
+                all_markets.extend(result.get("markets", []))
+            except Exception:
+                continue
+
+        all_markets.sort(key=_vol, reverse=True)
+        return {"markets": all_markets[:limit], "total": len(all_markets)}
     except Exception as e:
         raise HTTPException(500, str(e))
 
 
-# ââ Engine Controls ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Engine Controls ──────────────────────────────────────────────────────
 
 @app.post("/api/engine/start")
 async def start_engine():
@@ -139,7 +159,7 @@ async def stop_engine():
 async def trigger_scan():
     """Trigger a single scan cycle manually."""
     if engine.running:
-        return {"error": "Engine is running â stop it first to trigger manual scans"}
+        return {"error": "Engine is running — stop it first to trigger manual scans"}
     result = await engine.scan_and_trade()
     return result
 
@@ -158,7 +178,7 @@ async def engine_status():
     }
 
 
-# ââ Run ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Run ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn

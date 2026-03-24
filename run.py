@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kalshi Trading Bot â Main entry point.
+Kalshi Trading Bot — Main entry point.
 Starts the FastAPI server with the embedded trading engine.
 
 Usage:
@@ -59,15 +59,15 @@ async def test_connection():
         print("\n--- Sample Markets ---")
         mkts = await client.get_markets(limit=5, status="open")
         for m in mkts.get("markets", [])[:5]:
-            print(f"  {m.get('ticker')}: {m.get('title', '')[:60]}... YES={m.get('yes_price')}Â¢")
+            print(f"  {m.get('ticker')}: {m.get('title', '')[:60]}... YES={m.get('yes_price')}¢")
 
         # Test fills
         print("\n--- Recent Fills ---")
         fills = await client.get_fills(limit=5)
         for f in fills.get("fills", [])[:5]:
-            print(f"  {f.get('ticker')}: {f.get('side')} {f.get('count')}x @ {f.get('price')}Â¢")
+            print(f"  {f.get('ticker')}: {f.get('side')} {f.get('count')}x @ {f.get('price')}¢")
 
-    print("\nâ Connection successful!\n")
+    print("\n✓ Connection successful!\n")
 
 
 async def run_single_scan():
@@ -111,7 +111,7 @@ async def show_status():
     open_pos = await db.get_open_positions()
     print(f"\n=== DB Positions (Open) ===")
     for p in open_pos:
-        print(f"  {p['ticker']} {p['side']} qty={p['quantity']} entry={p['entry_price']}Â¢")
+        print(f"  {p['ticker']} {p['side']} qty={p['quantity']} entry={p['entry_price']}¢")
     print()
 
 
@@ -133,12 +133,12 @@ def main():
         # Start the server
         import uvicorn
         print(f"""
-âââââââââââââââââââââââââââââââââââââââââââââââââ
-â     Kalshi Trading Dashboard                  â
-â     Mode: {'LIVE ð´' if config.live_trading else 'PAPER ðµ'}                             â
-â     Dashboard: http://localhost:{args.port}          â
-â     API: http://localhost:{args.port}/api/dashboard   â
-âââââââââââââââââââââââââââââââââââââââââââââââââ
+╔═══════════════════════════════════════════════╗
+║     Kalshi Trading Dashboard                  ║
+║     Mode: {'LIVE 🔴' if config.live_trading else 'PAPER 🔵'}                            ║
+║     Dashboard: http://localhost:{args.port}          ║
+║     API: http://localhost:{args.port}/api/dashboard   ║
+╚═══════════════════════════════════════════════╝
         """)
         uvicorn.run(
             "api.server:app",
